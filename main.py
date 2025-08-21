@@ -16,6 +16,7 @@ app = FastAPI(
 
 load_dotenv()
 APPSCRIPT_API_URL = os.getenv("APPSCRIPT_API_URL")
+print(APPSCRIPT_API_URL)
 
 request_locks: Dict[str, asyncio.Lock] = {}
 
