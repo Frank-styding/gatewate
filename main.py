@@ -102,11 +102,11 @@ async def proxy_to_appscript(request: Request):
             }
         )
 
-#if __name__ == "__main__":
-#    import uvicorn
-#    try:
-#        if not APPSCRIPT_API_URL:
-#            exit(1)
-#        uvicorn.run(app,host="0.0.0.0", port=8000)
-#    except KeyboardInterrupt:
-#        pass
+if __name__ == "__main__":
+    import uvicorn
+    try:
+        if not APPSCRIPT_API_URL:
+            exit(1)
+        uvicorn.run(app,host="0.0.0.0", port=10000)
+    except KeyboardInterrupt:
+        pass
