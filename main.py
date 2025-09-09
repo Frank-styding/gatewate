@@ -52,20 +52,25 @@ async def cleanup_old_locks():
         for key in keys_to_remove:
             del request_locks[key]
 
+
+
+# Semaphore for limited concurrency (e.g., 3 concurrent requests)
+MAX_CONCURRENT_REQUESTS = 3
+sheets_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
+
 @app.post("/sheets")
 async def proxy_to_appscript(request: Request):
     request_id = get_request_id(request)
     start_time = datetime.now()
-    try:
-        body = await request.body()
-        lock = await get_request_lock(request_id)
-        async with lock:
+    body = await request.body()
+    async with sheets_semaphore:
+        try:
             response = await http_client.post(
                 APPSCRIPT_API_URL,
                 content=body,
             )
             processing_time = (datetime.now() - start_time).total_seconds()
-            await cleanup_old_locks()
             excluded_headers = {"content-encoding", "transfer-encoding", "connection"}
             headers = {k: v for k, v in response.headers.items() if k.lower() not in excluded_headers}
             headers["X-Request-ID"] = request_id
@@ -76,31 +81,31 @@ async def proxy_to_appscript(request: Request):
                 headers=headers,
                 media_type=response.headers.get("content-type")
             )
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=408, 
-            detail={
-                "error": "Timeout connecting to Apps Script",
-                "request_id": request_id
-            }
-        )
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=e.response.status_code,
-            detail={
-                "error": f"Apps Script returned error: {e.response.status_code}",
-                "request_id": request_id
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "Internal server error",
-                "message": str(e),
-                "request_id": request_id
-            }
-        )
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=408, 
+                detail={
+                    "error": "Timeout connecting to Apps Script",
+                    "request_id": request_id
+                }
+            )
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail={
+                    "error": f"Apps Script returned error: {e.response.status_code}",
+                    "request_id": request_id
+                }
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "Internal server error",
+                    "message": str(e),
+                    "request_id": request_id
+                }
+            )
 
 if __name__ == "__main__":
     import uvicorn
